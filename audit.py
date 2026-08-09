@@ -131,6 +131,28 @@ SKIP_SUFFIX = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf", ".zip", ".xlsx",
                ".woff", ".woff2", ".ttf", ".pyc", ".so", ".dll", ".exe"}
 SKIP_DIRS = {".git", "__pycache__", "node_modules", "venv", ".venv", "dist", "build"}
 
+# Files that must never be committed, by NAME or by EXTENSION.
+#
+# Name-only was the original behaviour and is trivially defeated: deploy_key, prod.pem
+# and signing.p12 all sail past an exact-filename list while being exactly what the
+# list exists to stop. Nobody renames a credential to evade a scanner -- they simply
+# never gave it the canonical name in the first place.
+#
+# Checked BEFORE the file is read, because the most dangerous ones are binary: a .p12
+# or .jks reads as empty, hit the early `continue`, and was never examined at all.
+SENSITIVE_NAMES = {
+    ".env", ".env.local", ".env.production", ".env.development",
+    "credentials.json", "secrets.json", "secrets.yml", "secrets.yaml",
+    "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519",
+    ".npmrc", ".pypirc", ".netrc", "_netrc",
+    "service-account.json", "terraform.tfvars", "kubeconfig",
+    ".htpasswd", "shadow", "master.key",
+}
+SENSITIVE_EXT = {
+    ".pem", ".key", ".p12", ".pfx", ".jks", ".keystore", ".ppk",
+    ".asc", ".gpg", ".pgp", ".kdbx", ".ovpn", ".mobileprovision",
+}
+
 PLACEHOLDER_HINTS = ("your", "example", "changeme", "xxxx", "<", "placeholder",
                      "dummy", "fake", "redacted", "notreal", "sample", "yourname",
                      "username", "user-name", "me@", "foo", "bar")
@@ -255,6 +277,18 @@ def audit_security(root):
 
     for p in walk(root):
         rel = p.relative_to(root)
+
+        # Name and extension are checked BEFORE reading, because the most dangerous
+        # credential files are binary. A .p12, .jks or .keystore reads as empty or
+        # garbage, hit the `continue` below, and was never examined at all — the check
+        # existed but could not see the files it was written for.
+        if rel.name.lower() in SENSITIVE_NAMES or rel.suffix.lower() in SENSITIVE_EXT:
+            out.append(Finding("SECURITY", "FATAL", f"sensitive file present: {rel}",
+                               str(rel),
+                               "This file name or extension exists to hold a key, a "
+                               "certificate or a credential."))
+            continue
+
         text = read(p)
         if not text:
             continue
@@ -336,12 +370,13 @@ def audit_security(root):
                         "CI secrets must be references (${{ secrets.NAME }} or $ENV), "
                         "never literals. This file is published like any other."))
 
-        # Files that should never be committed at all.
-        if rel.name in (".env", ".env.local", ".env.production", "credentials.json",
-                        "secrets.json", "id_rsa", "id_ed25519", ".npmrc", ".pypirc",
-                        "service-account.json", ".netrc", "terraform.tfvars"):
-            out.append(Finding("SECURITY", "FATAL", f"sensitive file present: {rel}",
-                               str(rel), "This file type exists to hold credentials."))
+        # A key whose filename gives nothing away — caught by content instead.
+        if re.search(r"BEGIN (RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY", text):
+            out.append(Finding("SECURITY", "FATAL",
+                               f"PEM private key block inside {rel}", str(rel),
+                               "The filename is innocuous; the contents are a private "
+                               "key. Rotate it — it is compromised the moment this "
+                               "publishes."))
 
     # Git history. Fixing a file in the working tree does NOT remove it from earlier
     # commits -- `git log -p` on a published repo hands the old version to anyone.
