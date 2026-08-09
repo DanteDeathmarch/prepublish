@@ -73,8 +73,29 @@ EXPOSURE_PATTERNS = [
      "absolute home path — leaks the username"),
     (r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}",
      "email address"),
-    (r"\blocalhost:\d{4,5}\b",
-     "internal service port"),
+    # NOTE: bare `localhost:PORT` is deliberately NOT here.
+    #
+    # It was, and it blocked a tool whose entire purpose is talking to a local gateway
+    # — the port appeared in its README as documentation and in its source as a
+    # default. That is a false positive, and the fix is a better pattern, not a waiver
+    # flag. `localhost` means "this machine" to whoever runs it and discloses nothing
+    # about anyone's network.
+    #
+    # What DOES disclose something is a private hostname or a non-loopback internal
+    # address, both of which are still caught below.
+    (r"\b(?:10\.\d{1,3}|192\.168|172\.(?:1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}\b",
+     "private LAN address — maps your internal network"),
+    # Filenames are not hostnames. Two guards, each added after a real false positive
+    # in this very file:
+    #   lookbehind  — stops a dotted filename (dot + env + dot + local) matching
+    #   lookahead   — stops a file extension (something + dot + local + dot + json)
+    # A third false positive came from an explanatory COMMENT that spelled the example
+    # out literally. Self-matching has now bitten this project three times: a process
+    # query counting itself, a stub detector flagging its own patterns, and this.
+    # Write examples so they cannot match.
+    (r"(?<![.\w-])[a-z][a-z0-9-]{2,}\.(?:local|internal|lan|corp|intranet)"
+     r"(?![a-z0-9-])(?!\.[a-z]{2,5}\b)",
+     "internal hostname"),
 ]
 
 # Internal names that must never appear in anything public.

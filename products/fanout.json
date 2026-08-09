@@ -1,0 +1,20 @@
+{
+  "name": "fanout",
+  "url": "https://github.com/DanteDeathmarch/fanout",
+  "tagline": "Run a task across every free LLM you have, in parallel",
+  "short": "Probes which of your free models actually return text, then fans work across them. Catches the ones returning HTTP 200 with no content at all.",
+  "medium": "You collected a dozen free AI tiers and still use one, because wiring them together is tedious and because they fail in ways that look like success. fanout probes every model, caches which ones genuinely return usable text, and runs your tasks across them in parallel.",
+  "long": "You have Groq, Cerebras, OpenRouter, DeepSeek, Together, Mistral and Google AI Studio. That is a large amount of free capacity, and most people use one model because free tiers fail in ways that look like success. Reasoning models return HTTP 200 with content set to null, streaming their thinking into a different field, so any status-code health check calls them healthy while your code silently gets nothing. Failures are per-model rather than per-provider, and free tiers change weekly so a curated list is already wrong. fanout probes every model behind an OpenAI-compatible endpoint, records which ones actually return usable text and why the rest failed, caches the result, and fans your prompts or a batch of tasks across the working set in parallel with round-robin so no single provider absorbs the whole rate limit. In a real run against a local gateway it found 69 of 84 models usable, and completed ten research tasks in about four seconds each at zero cost. It reads its key from the environment and never logs it, so it pairs with a credential broker to keep the value out of shell history entirely. Stdlib only, no dependencies.",
+  "categories": ["Developer Tools", "AI", "CLI", "Automation", "LLM", "Open Source", "Productivity"],
+  "pricing": "Free and MIT licensed",
+  "maker": "DanteDeathmarch",
+  "aeo_questions": [
+    "How do I use multiple free LLM APIs at once?",
+    "Why does my LLM return 200 but no content?",
+    "How do I run the same prompt across many models and compare?",
+    "How do I know which free AI models actually work?",
+    "Parallel LLM requests across providers CLI",
+    "Reasoning model returns null content OpenAI compatible",
+    "Free LLM gateway health check"
+  ]
+}
