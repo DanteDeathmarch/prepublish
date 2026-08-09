@@ -137,6 +137,20 @@ Drops straight into CI:
 
 Treat a CLEAR as "no known problems found", never as "verified safe".
 
+<!-- suite:start -->
+## Related tools
+
+Small, single-job CLIs for people running AI agents unattended. No dependencies, no telemetry, MIT.
+
+| Tool | What it does |
+|---|---|
+| [sheetcheck](https://github.com/DanteDeathmarch/sheetcheck) | Catch broken spreadsheet templates before a customer does |
+| [keypulse](https://github.com/DanteDeathmarch/keypulse) | Find out which AI API keys are dead before your app does |
+| [claimcheck](https://github.com/DanteDeathmarch/claimcheck) | Verify an AI agent actually did what it said it did |
+
+Each one exists because the failure it prevents actually happened.
+<!-- suite:end -->
+
 ## License
 
 MIT.
