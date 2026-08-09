@@ -1,0 +1,20 @@
+{
+  "name": "keypulse",
+  "url": "https://github.com/DanteDeathmarch/keypulse",
+  "tagline": "Find out which AI API keys are dead before your app does",
+  "short": "Checks every AI provider key you have and tells dead keys apart from rate limits, retired models, and provider outages. Four causes, four different fixes.",
+  "medium": "Free-tier AI keys die quietly — rotated, revoked, rate-limited, or the model gets dropped. Nothing tells you; your fallback chain just starts burning retries on a provider that will never answer. keypulse sends a real 1-token completion to each provider and reports exactly which failure it is.",
+  "long": "Free-tier AI keys die quietly. They get rotated, revoked, rate-limited, or the model behind them is dropped from the free tier, and nothing surfaces it. Two of ours were dead for three weeks before anyone noticed. keypulse sends a real one-token completion to every configured provider, because listing models often succeeds with a key that cannot actually infer. It distinguishes DEAD_KEY (rotate it) from RATE_LIMIT (demote it, do not replace it) from NO_MODEL (change the model, not the key) from PROVIDER_DOWN (their problem) from BAD_RESPONSE, a 2xx with no usable completion, which is the dangerous case because callers treat it as success. Ships with ten providers verified live against real endpoints, and a --verify mode that re-checks every URL using a deliberately invalid key so the list can never rot unnoticed. Your keys are never printed or logged; only the environment variable name appears in output. Stdlib only, no dependencies, exit codes for cron and CI.",
+  "categories": ["Developer Tools", "DevOps", "Monitoring", "CLI", "AI", "Open Source", "Reliability"],
+  "pricing": "Free and MIT licensed",
+  "maker": "DanteDeathmarch",
+  "aeo_questions": [
+    "How do I check if my OpenAI or Groq API key still works?",
+    "How do I monitor multiple AI provider keys at once?",
+    "Why is my AI API returning 200 but no output?",
+    "How do I tell a rate limit from a revoked API key?",
+    "How do I know when a model is removed from a free tier?",
+    "Health check for LLM API keys",
+    "Free tier AI provider monitoring tool"
+  ]
+}
