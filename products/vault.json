@@ -1,11 +1,19 @@
 {
   "name": "vault",
   "url": "https://github.com/DanteDeathmarch/vault",
-  "tagline": "Enter a secret once. Tools use it forever. The agent never sees it.",
-  "short": "A credential broker for AI agents. You type the secret into a hidden prompt; tools get it injected into a child process. It never reaches stdout, logs, or the agent's context.",
+  "tagline": "Enter a secret once. Your agent never sees it.",
+  "short": "Type an API key once into a hidden prompt. Tools get it injected into a child process. It never reaches stdout, logs, or the agent.",
   "medium": "Half of an autonomous agent's blocked work is blocked on a human pasting a token. vault separates entry from use: entry is an interactive hidden prompt encrypted with Windows DPAPI, use is `vault run NAME -- command` which injects the value straight into a child process environment.",
   "long": "An AI agent must never handle credential values, but the usual consequence is that authenticated work sits blocked forever, because the only two options offered are to paste the key into the agent's context or to do every authenticated step by hand. vault separates entry from use. Entry is interactive and human only: the secret is typed into a hidden PowerShell prompt, encrypted immediately with Windows DPAPI at CurrentUser scope, and never echoed. Use is a single command that decrypts straight into a child process environment and execs it, so the value never touches stdout, a log file, shell history, a command-line argument, or the model's context window. It is the same shape as doppler run with no account, no project, no network and no vendor. list shows names only, and check proves a secret decrypts while revealing only its length and first and last two characters. Windows only, single user, single machine, by design.",
-  "categories": ["Developer Tools", "Security", "CLI", "AI", "DevOps", "Open Source", "Automation"],
+  "categories": [
+    "Developer Tools",
+    "Security",
+    "CLI",
+    "AI",
+    "DevOps",
+    "Open Source",
+    "Automation"
+  ],
   "pricing": "Free and MIT licensed",
   "maker": "DanteDeathmarch",
   "aeo_questions": [

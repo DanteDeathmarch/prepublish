@@ -445,11 +445,46 @@ def audit_deliverability(root):
         out.append(Finding("DELIVERABILITY", "FAIL", "no README",
                            "", "Directories reject submissions with no README, and "
                                "a stranger has no entry point."))
-    if not any(n.startswith("LICENSE") for n in names):
+    lic_name = next((n for n in names if n.startswith("LICENSE")), None)
+    if not lic_name:
         out.append(Finding("DELIVERABILITY", "FAIL", "no LICENSE",
                            "", "Without a license nobody may legally use it, which "
                                "makes it unusable in exactly the commercial context "
                                "we are targeting."))
+    else:
+        # A LICENSE file that EXISTS is not a LICENSE file that grants anything.
+        # The old check only tested for the filename, so an empty file, a stub, or a
+        # template with the copyright line still unfilled all passed — and shipping
+        # that is legally identical to shipping no license at all.
+        lic = next(p for p in root.iterdir()
+                   if p.is_file() and p.name == lic_name)
+        body = read(lic)
+        low = body.lower()
+        KNOWN = ("mit license", "apache license", "gnu general public",
+                 "bsd ", "mozilla public license", "the unlicense",
+                 "isc license", "creative commons")
+        if len(body.strip()) < 200:
+            out.append(Finding(
+                "DELIVERABILITY", "FAIL",
+                f"{lic_name} is only {len(body.strip())} chars — not a real licence",
+                lic_name,
+                "An empty or stub LICENSE grants nothing. Legally it is the same as "
+                "having no licence, but it looks like you have one."))
+        elif not any(k in low for k in KNOWN):
+            out.append(Finding(
+                "DELIVERABILITY", "FAIL",
+                f"{lic_name} does not match any known licence text",
+                lic_name,
+                "Either it is a custom licence (say so deliberately) or the file is "
+                "not what you think it is."))
+        elif re.search(r"\[(year|yyyy|fullname|name of copyright owner)\]", low) or \
+                re.search(r"copyright \(c\)\s*(19|20)?xx", low):
+            out.append(Finding(
+                "DELIVERABILITY", "FAIL",
+                f"{lic_name} still has unfilled template placeholders",
+                lic_name,
+                "A licence with [year] and [fullname] left in reads as copy-pasted "
+                "and leaves the copyright holder undefined."))
     if not (root / ".gitignore").exists():
         out.append(Finding("DELIVERABILITY", "WARN", "no .gitignore",
                            "", "Raises the chance of committing something private later."))
