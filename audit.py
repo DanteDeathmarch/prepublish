@@ -29,6 +29,7 @@ the mechanism by which every scanner eventually gets ignored.
 
 import hashlib
 import json
+import math
 import os
 import re
 import subprocess
@@ -112,6 +113,37 @@ SKIP_DIRS = {".git", "__pycache__", "node_modules", "venv", ".venv", "dist", "bu
 PLACEHOLDER_HINTS = ("your", "example", "changeme", "xxxx", "<", "placeholder",
                      "dummy", "fake", "redacted", "notreal", "sample", "yourname",
                      "username", "user-name", "me@", "foo", "bar")
+
+# Files whose whole purpose is to hold credentials for CI. Secrets belong in the
+# provider's secret store and are referenced, never written literally.
+CI_PATHS = (".github/workflows", ".gitlab-ci", "azure-pipelines", ".circleci",
+            "Jenkinsfile", ".travis.yml", "bitbucket-pipelines")
+
+# A literal value assigned inside a CI env: block, as opposed to a ${{ secrets.X }}
+# reference or an $ENV interpolation.
+CI_LITERAL = re.compile(
+    r"(?im)^\s*[A-Z][A-Z0-9_]{2,}\s*:\s*(?!\s*[\"']?\$)(?!\s*[\"']?\{\{)"
+    r"[\"']?([^\s\"'#]{12,})[\"']?\s*$")
+
+
+def shannon_entropy(s):
+    """Bits per character. High entropy = random-looking = probably a key."""
+    if not s:
+        return 0.0
+    from collections import Counter
+    n = len(s)
+    return -sum((c / n) * math.log2(c / n) for c in Counter(s).values())
+
+
+# Tokens that look like credentials regardless of vendor prefix. This is the check
+# that catches formats nobody enumerated -- a new provider, an internal system, a
+# rotated scheme. Pattern lists only ever catch yesterday's leaks.
+HIGH_ENTROPY_CANDIDATE = re.compile(r"[A-Za-z0-9+/=_\-]{32,}")
+
+# Things that are legitimately long and random-looking but are not secrets.
+ENTROPY_EXEMPT = re.compile(
+    r"(?i)(sha256|sha512|sha1|md5|integrity=|[0-9a-f]{40}|[0-9a-f]{64}"
+    r"|data:image|base64,|https?://|users\.noreply|Co-Authored-By)")
 
 
 class Finding:
@@ -244,9 +276,49 @@ def audit_security(root):
                         "Internal names map your private org structure and, in at "
                         "least one case, are explicitly off-limits."))
 
+            # Entropy check. Pattern lists catch yesterday's credential formats; this
+            # catches the ones nobody enumerated -- a new provider, an internal system,
+            # a rotated scheme. Threshold 4.0 bits/char with mixed case and digits is
+            # well above English prose (~2.5-3.0) and above hex hashes (~4.0 but
+            # exempted explicitly).
+            if not ENTROPY_EXEMPT.search(line):
+                for tok in HIGH_ENTROPY_CANDIDATE.findall(line):
+                    if looks_like_placeholder(line):
+                        break
+                    has_mix = (any(c.isdigit() for c in tok)
+                               and any(c.islower() for c in tok)
+                               and any(c.isupper() for c in tok))
+                    if has_mix and shannon_entropy(tok) >= 4.0:
+                        out.append(Finding(
+                            "SECURITY", "FATAL",
+                            f"high-entropy string ({shannon_entropy(tok):.1f} bits/char, "
+                            f"{len(tok)} chars) — looks like a credential",
+                            f"{rel}:{i}",
+                            "Matches no known key format, which is exactly why this "
+                            "check exists. If it is not a secret, move it to a config "
+                            "file or add a placeholder marker."))
+                        break
+
+        # CI config: a secret written literally here is published like any other file,
+        # and CI files are the single most common place people paste one "temporarily".
+        if any(c in str(rel).replace("\\", "/") for c in CI_PATHS):
+            for m in CI_LITERAL.finditer(text):
+                val = m.group(1)
+                if looks_like_placeholder(m.group(0)) or val.startswith(("$", "{")):
+                    continue
+                if shannon_entropy(val) >= 3.5 or len(val) >= 24:
+                    ln = text[:m.start()].count("\n") + 1
+                    out.append(Finding(
+                        "SECURITY", "FATAL",
+                        f"literal value in CI config: {m.group(0).strip()[:50]}",
+                        f"{rel}:{ln}",
+                        "CI secrets must be references (${{ secrets.NAME }} or $ENV), "
+                        "never literals. This file is published like any other."))
+
         # Files that should never be committed at all.
-        if rel.name in (".env", ".env.local", "credentials.json", "secrets.json",
-                        "id_rsa", "id_ed25519", ".npmrc", ".pypirc"):
+        if rel.name in (".env", ".env.local", ".env.production", "credentials.json",
+                        "secrets.json", "id_rsa", "id_ed25519", ".npmrc", ".pypirc",
+                        "service-account.json", ".netrc", "terraform.tfvars"):
             out.append(Finding("SECURITY", "FATAL", f"sensitive file present: {rel}",
                                str(rel), "This file type exists to hold credentials."))
 

@@ -131,27 +131,42 @@ GITATTRIBUTES = """* text=auto eol=lf
 
 
 def check_readme_matches_help(root, info, problems):
-    """A README that documents flags the tool does not have is worse than no README."""
-    if not info["entry"]:
-        return
+    """A README that documents flags the tool does not have is worse than no README.
+
+    Probes EVERY entry point, not just the first one found. A repo that ships several
+    commands (audit / package / publish) documents the union of their flags, and
+    checking only the first produced a confident false warning listing six real,
+    working flags as phantom.
+    """
     rd = next((p for p in root.iterdir()
                if p.is_file() and p.name.upper().startswith("README")), None)
     if not rd:
         return
     readme = rd.read_text(encoding="utf-8", errors="ignore")
-    try:
-        r = subprocess.run([sys.executable, str(root / info["entry"]), "--help"],
-                           capture_output=True, text=True, timeout=45)
-        helptext = r.stdout + r.stderr
-    except Exception:  # noqa: BLE001
+
+    entries = [p for p in root.glob("*.py")
+               if "__main__" in p.read_text(encoding="utf-8", errors="ignore")]
+    if not entries:
+        return
+
+    real = set()
+    probed = 0
+    for e in entries:
+        try:
+            r = subprocess.run([sys.executable, str(e), "--help"],
+                               capture_output=True, text=True, timeout=45)
+            real |= set(re.findall(r"(--[a-z][a-z\-]{2,})", r.stdout + r.stderr))
+            probed += 1
+        except Exception:  # noqa: BLE001
+            continue
+    if not probed:
         return
 
     documented = set(re.findall(r"(--[a-z][a-z\-]{2,})", readme))
-    real = set(re.findall(r"(--[a-z][a-z\-]{2,})", helptext))
     phantom = documented - real - {"--help"}
     if phantom:
-        problems.append(f"README documents flags the tool does not have: "
-                        f"{', '.join(sorted(phantom))}")
+        problems.append(f"README documents flags no entry point has "
+                        f"({probed} probed): {', '.join(sorted(phantom))}")
 
 
 def main():
