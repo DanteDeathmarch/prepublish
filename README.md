@@ -8,7 +8,7 @@ For anyone about to `gh repo create --public` on something they've been building
 privately — especially if an AI agent wrote part of it and you haven't read every line.
 
 ```bash
-python audit.py ./my-project
+python prepublish.py ./my-project
 ```
 
 ```
@@ -44,8 +44,9 @@ a secret in commit #3 that you "removed" in commit #4 and is still sitting in
 Nothing to install. Python 3.8+, standard library only.
 
 ```bash
+curl -O https://raw.githubusercontent.com/DanteDeathmarch/prepublish/main/prepublish.py
 curl -O https://raw.githubusercontent.com/DanteDeathmarch/prepublish/main/audit.py
-python audit.py ./my-project
+python prepublish.py ./my-project
 ```
 
 ## The five audits
