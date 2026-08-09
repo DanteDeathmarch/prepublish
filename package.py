@@ -196,11 +196,26 @@ def main():
         if badge_line and "img.shields.io" not in readme:
             lines = readme.splitlines()
             # Insert directly under the H1 so it renders as a header block.
+            #
+            # Must track fenced code blocks. `# ` also starts a shell comment, so a
+            # README whose first heading-looking line is inside a ```bash fence got
+            # badge markdown injected INTO the code sample. That shipped to a live
+            # profile page before anyone noticed — the badges rendered as literal
+            # text in the middle of a copy-paste command.
+            in_fence = False
+            placed = False
             for i, ln in enumerate(lines):
-                if ln.startswith("# "):
+                if ln.lstrip().startswith("```"):
+                    in_fence = not in_fence
+                    continue
+                if not in_fence and ln.startswith("# "):
                     lines.insert(i + 1, "")
                     lines.insert(i + 2, badge_line)
+                    placed = True
                     break
+            if not placed:
+                print("  WARN: no top-level heading outside a code fence — "
+                      "badges not added")
             readme = "\n".join(lines)
             if not dry:
                 rd.write_text(readme, encoding="utf-8")

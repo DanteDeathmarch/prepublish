@@ -2,8 +2,8 @@
   "name": "SheetCheck",
   "url": "https://github.com/DanteDeathmarch/sheetcheck",
   "tagline": "Catch broken spreadsheet templates before a customer does",
-  "short": "Upload an .xlsx and get a pass/fail report in seconds: dead formulas, #REF! errors, empty tabs, and sheets that are really just tables pretending to be tools.",
-  "medium": "SheetCheck opens your spreadsheet template, recalculates it, and tells you if it actually works. It counts real formulas, measures density, finds every #REF! and #DIV/0!, and flags empty tabs. If your 'automated budget tracker' has 11 formulas across 3,000 cells, you find out before a buyer does.",
+  "short": "Point it at an .xlsx: dead formulas, #REF! errors, empty tabs, and sheets that are tables pretending to be tools. Runs locally.",
+  "medium": "sheetcheck opens your spreadsheet locally and tells you if it actually works. It counts real formulas, measures density, finds every #REF! and #DIV/0!, and flags empty tabs. If your 'automated tracker' has 11 formulas across 3,000 cells, you find out before a buyer does.",
   "long": "Every digital-product seller has shipped a broken spreadsheet at least once. The file opens, it's the right size, the tabs are named correctly \u2014 and three months later a refund request arrives because the totals never calculated. File size is not evidence that a product works. SheetCheck is the check that runs before you list. Upload an .xlsx and get back a pass/fail verdict with the numbers behind it: how many real formulas exist, formula density per cell, every error literal (#REF!, #DIV/0!, #VALUE!, #NAME?, #N/A, #NULL!, #NUM!), empty or orphaned sheets, and corrupt workbook members. It recalculates the workbook headlessly so it reads computed values, not cached ones \u2014 the difference between a formula that looks fine in the XML and a formula that actually errors when a buyer opens it. Built for people selling spreadsheet templates on Etsy, Gumroad, Payhip and Creative Market, where a single broken formula costs a review, a refund, and the listing's ranking. Run it on one file or a whole folder before every launch.",
   "categories": [
     "Productivity",
