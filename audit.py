@@ -550,6 +550,45 @@ def audit_deliverability(root):
         out.append(Finding("DELIVERABILITY", "WARN",
                            "README has no Install/Usage heading", "README",
                            "First question a stranger has is 'how do I run this'."))
+
+    # Markdown integrity. A README is the front door; if it renders wrong, the tool
+    # looks broken before anyone runs it.
+    #
+    # Both checks below exist because they actually happened here: a packaging step
+    # injected badge markdown INTO a ```bash block on a live profile page, so the
+    # copy-paste command rendered with image tags in the middle of it.
+    if readme:
+        lines = readme.splitlines()
+        fences = [i for i, ln in enumerate(lines) if ln.lstrip().startswith("```")]
+        if len(fences) % 2 == 1:
+            out.append(Finding(
+                "DELIVERABILITY", "FAIL",
+                f"unclosed code fence (found {len(fences)} ``` markers)", "README",
+                "An odd number of fences means everything after the last one renders "
+                "as code. The rest of your README becomes invisible."))
+
+        in_fence = False
+        for i, ln in enumerate(lines, 1):
+            if ln.lstrip().startswith("```"):
+                in_fence = not in_fence
+                continue
+            if in_fence and re.search(r"!\[[^\]]*\]\(|<img\s", ln):
+                out.append(Finding(
+                    "DELIVERABILITY", "FAIL",
+                    f"markdown image inside a code block (line {i})", "README",
+                    "It will render as literal text in the middle of a command. "
+                    "Usually a packaging step that inserted after a '# ' line "
+                    "without noticing it was a shell comment."))
+                break
+
+        # A link to a file that isn't in the repo is a 404 for every visitor.
+        for m in re.finditer(r"\]\((?!https?://|#|mailto:)([^)\s]+)\)", readme):
+            rel = m.group(1).split("#")[0].strip()
+            if rel and not (root / rel).exists():
+                out.append(Finding(
+                    "DELIVERABILITY", "WARN",
+                    f"README links to a missing file: {rel}", "README",
+                    "Relative links 404 for everyone who clicks them."))
     return out
 
 
