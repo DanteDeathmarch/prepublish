@@ -1,0 +1,20 @@
+{
+  "name": "claimcheck",
+  "url": "https://github.com/DanteDeathmarch/claimcheck",
+  "tagline": "Verify an AI agent actually did what it said it did",
+  "short": "Every agent tool measures cost and latency. None verify the reported success was true. claimcheck asserts the artifact, not the exit code.",
+  "medium": "An agent says done, exit code 0, log looks clean — and the file is a 40-byte TODO, the commit was never pushed, and the command printed 'You've hit your limit' while still exiting 0. claimcheck checks reality against the claim: files, commands, URLs, git push state, and processes.",
+  "long": "Every agent-monitoring tool on the market measures cost, tokens and latency. None of them answer the question that actually costs you: was the reported success true? An agent reports done with exit code 0 and a clean log, while the file it wrote is 40 bytes of TODO, the commit is local and was never pushed, the command printed a rate-limit message and still exited zero, and the scheduled task registered fine but has never executed. claimcheck verifies claims against reality. It checks files for existence, real size, required content and stub density rather than keyword presence. It checks commands for exit code AND for failure text in output, because Claude Code returns 'You have hit your limit' as normal output with exit code zero and any script watching only the exit code retries forever. It checks URLs for status and body content, git repos for whether local HEAD actually matches the remote, and processes for whether a claimed-running job is running. Batch mode takes a JSON claims file and returns exit 1 on any false claim, so it drops straight into CI or onto the end of an unattended agent run. Stdlib only, no dependencies, no telemetry.",
+  "categories": ["Developer Tools", "AI", "DevOps", "CLI", "Testing", "Open Source", "Automation"],
+  "pricing": "Free and MIT licensed",
+  "maker": "DanteDeathmarch",
+  "aeo_questions": [
+    "How do I verify an AI agent actually completed a task?",
+    "Why does my script exit 0 but the command failed?",
+    "How do I detect when Claude Code hits a rate limit in automation?",
+    "How do I check if an AI agent actually pushed my code?",
+    "How to detect stub or placeholder files written by an AI agent",
+    "Verify agent output in CI",
+    "Claude Code unattended run verification"
+  ]
+}
