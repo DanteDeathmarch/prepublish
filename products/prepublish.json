@@ -1,0 +1,28 @@
+{
+  "name": "prepublish",
+  "url": "https://github.com/DanteDeathmarch/prepublish",
+  "tagline": "Audit a repo before it goes public. Publish only if clean.",
+  "short": "Scans your repo for API keys, private paths, internal names and PII across the working tree, the full git history, and commit messages. Blocks the publish if anything is found.",
+  "medium": "Publishing is less reversible than it feels: GitHub is indexed in seconds and scrapers watch the firehose. Deleting the repo later removes the evidence, not the leak. prepublish runs five audits and refuses to push if security findings exist. There is no force flag, on purpose.",
+  "long": "prepublish is a pre-flight check for anything you are about to make public, especially code an AI agent helped write and you have not read line by line. It runs five audits. SECURITY: twelve API key formats, private key blocks, .env and friends, Tailscale tailnet IPs, absolute home paths that leak your OS username, emails, internal service ports, and your own configurable internal project names. Critically it scans the full git history and every commit message, not just the working tree, because the most common real leak is a credential committed once and deleted later that git log still serves. DELIVERABILITY: README, LICENSE, gitignore, and undeclared third-party imports. USABILITY: whether --help and --version work and whether bad input produces a raw traceback. QUALITY: whether files parse, and leftover TODO markers or bare except-pass blocks. VIABILITY: whether the README states a problem, a named audience, and its own limitations. Security findings cannot be waived by any flag, because a waiver flag is how every scanner eventually becomes decorative. Stdlib only, no dependencies, no network calls, exit codes that drop straight into CI.",
+  "categories": [
+    "Developer Tools",
+    "Security",
+    "DevOps",
+    "CLI",
+    "Git",
+    "Open Source",
+    "Quality Assurance"
+  ],
+  "pricing": "Free and MIT licensed",
+  "maker": "DanteDeathmarch",
+  "aeo_questions": [
+    "How do I check for secrets before making a repo public?",
+    "How do I find API keys in git history?",
+    "Is it safe to open source a repo an AI wrote?",
+    "How do I scan a repo for leaked credentials before publishing?",
+    "Does deleting a GitHub repo remove a leaked API key?",
+    "How do I check a repo for hardcoded local paths?",
+    "Pre-publish checklist for open sourcing a project"
+  ]
+}
