@@ -533,7 +533,14 @@ def audit_deliverability(root):
         "os", "sys", "re", "json", "glob", "zipfile", "pathlib", "subprocess",
         "hashlib", "typing", "dataclasses", "collections", "itertools", "math",
         "time", "datetime", "argparse", "csv", "io", "shutil", "tempfile", "urllib"}
-    third = {i for i in imports if i not in stdlib}
+    # A module can never be an external dependency of itself. Found
+    # 2026-08-31: a test file sitting next to the module it tests
+    # (test_claimcheck.py importing claimcheck) matched the same import
+    # regex as a real third-party package, and got reported as an
+    # unmanifested dependency -- same self/local-sibling blind spot this
+    # project's own wiki-gate.js hit and fixed for a different scanner.
+    local_modules = {p.stem for p in py}
+    third = {i for i in imports if i not in stdlib and i not in local_modules}
     has_manifest = any((root / f).exists() for f in
                        ("requirements.txt", "pyproject.toml", "setup.py", "Pipfile"))
     if third and not has_manifest:
