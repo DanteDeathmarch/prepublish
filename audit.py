@@ -606,11 +606,27 @@ def audit_deliverability(root):
 def audit_usability(root):
     out, root = [], Path(root)
     entry = None
-    for cand in root.glob("*.py"):
-        t = read(cand)
-        if "__main__" in t:
-            entry = cand
-            break
+    # Prefer a file named after the directory itself (the convention every
+    # tool in this catalog follows: triage/triage.py, vault/vault.py) before
+    # falling back to a glob scan. Found 2026-08-31: root.glob("*.py") has
+    # no guaranteed order, and a test_*.py file (which also contains
+    # `if __name__ == "__main__":` to run unittest.main()) was picked
+    # instead of the real entry point purely by filesystem enumeration
+    # order -- test_triage.py sorted ahead of triage.py on one run and
+    # audit_usability() then ran `test_triage.py --version`, which of
+    # course produces nothing useful. Same fix smoke.py's find_entry()
+    # already uses for the identical problem.
+    named = root / f"{root.name}.py"
+    if named.exists() and "__main__" in read(named):
+        entry = named
+    else:
+        for cand in root.glob("*.py"):
+            if cand.name.startswith("test_") or cand.name.endswith("_test.py"):
+                continue
+            t = read(cand)
+            if "__main__" in t:
+                entry = cand
+                break
     if not entry:
         out.append(Finding("USABILITY", "WARN", "no obvious entry point",
                            "", "Nothing to run means nothing to try."))
