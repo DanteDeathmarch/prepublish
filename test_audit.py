@@ -44,6 +44,76 @@ def _init_repo(root):
     _git(root, "config", "user.name", "Test")
 
 
+def _fake_jwt(role, iss="supabase"):
+    """A real, structurally valid JWT shape (base64url header.payload.sig)
+    with a chosen role claim -- built the same way a real Supabase key is,
+    not a literal secret sitting in this file's own source."""
+    import base64
+    import json as _json
+
+    def seg(obj):
+        return base64.urlsafe_b64encode(_json.dumps(obj).encode()).decode().rstrip("=")
+    return f"{seg({'alg': 'HS256', 'typ': 'JWT'})}.{seg({'iss': iss, 'role': role})}.sigxyz789"
+
+
+class TestSupabaseAnonKeyExemption(unittest.TestCase):
+    """Found 2026-09-01 auditing a real Supabase-backed extension: its
+    intentionally-public anon key was flagged as a leaked credential twice
+    over (the exact-pattern JWT check, and independently by the generic
+    entropy heuristic catching a fragment of the same token). A
+    service_role key -- which must NEVER ship publicly -- must still be
+    caught by both; this is a role-claim exemption, not a blanket JWT
+    exemption."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmpdir.name)
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def _fatal_msgs(self):
+        return [f.msg for f in audit.audit_security(self.root) if f.severity == "FATAL"]
+
+    def test_helper_exempts_only_the_anon_role(self):
+        self.assertTrue(audit._is_supabase_anon_jwt(_fake_jwt("anon")))
+        self.assertFalse(audit._is_supabase_anon_jwt(_fake_jwt("service_role")))
+        self.assertFalse(audit._is_supabase_anon_jwt("not.a.jwt"))
+
+    def test_anon_key_in_source_is_not_flagged(self):
+        _write(self.root, "popup.js",
+               f"const SUPABASE_ANON_KEY='{_fake_jwt('anon')}';\n")
+        msgs = self._fatal_msgs()
+        self.assertEqual([m for m in msgs if "JWT" in m or "entropy" in m], [])
+
+    def test_service_role_key_in_source_is_still_fatal(self):
+        _write(self.root, "leaked.js",
+               f"const SUPABASE_SERVICE_ROLE_KEY='{_fake_jwt('service_role')}';\n")
+        msgs = self._fatal_msgs()
+        self.assertTrue(any("JWT" in m for m in msgs),
+                        "a service_role key must never be exempted")
+
+    def test_manifest_public_key_is_not_flagged(self):
+        # A real Chrome extension manifest "key" field: base64 DER, always
+        # long, always high-entropy by construction -- not a secret.
+        fake_der_b64 = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A" + "kX9pQ7mR2vT8yU1nH5jL0aB6dE4gI" * 4
+        _write(self.root, "manifest.json",
+               '{"manifest_version": 3, "name": "x", "version": "1",\n'
+               f'"key": "{fake_der_b64}"}}\n')
+        msgs = self._fatal_msgs()
+        self.assertEqual([m for m in msgs if "entropy" in m], [])
+
+    def test_high_entropy_string_outside_a_manifest_is_still_caught(self):
+        # Same shape of string, but NOT in a manifest.json with
+        # manifest_version:3 -- must not be exempted just because it looks
+        # similar; the exemption is structural (file + field), not a
+        # length/format guess.
+        fake_der_b64 = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A" + "kX9pQ7mR2vT8yU1nH5jL0aB6dE4gI" * 4
+        _write(self.root, "config.json", f'{{"key": "{fake_der_b64}"}}\n')
+        msgs = self._fatal_msgs()
+        self.assertTrue(any("entropy" in m for m in msgs))
+
+
 class TestSecretPatterns(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.TemporaryDirectory()

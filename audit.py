@@ -255,6 +255,30 @@ def looks_like_placeholder(line):
     return any(h in low for h in PLACEHOLDER_HINTS)
 
 
+def _is_supabase_anon_jwt(matched_text):
+    """A Supabase project's anon/public key IS a JWT and IS meant to ship
+    inside a client -- RLS is the real security boundary once GRANT is
+    also correct, per this org's own supabase.md wiki entry. A
+    service_role JWT must never ship and this must NOT exempt one; decode
+    the payload and check the claim directly rather than assuming every
+    Supabase-shaped JWT is safe. Found 2026-09-01 auditing SALT: its real,
+    intentionally-public anon key was flagged as a leaked credential with
+    no way to tell it apart from a real secret.
+    """
+    import base64
+    import json as _json
+    parts = matched_text.split(".")
+    if len(parts) < 2:
+        return False
+    payload = parts[1]
+    payload += "=" * (-len(payload) % 4)  # restore stripped base64url padding
+    try:
+        claims = _json.loads(base64.urlsafe_b64decode(payload))
+    except Exception:  # noqa: BLE001
+        return False
+    return claims.get("iss") == "supabase" and claims.get("role") == "anon"
+
+
 # ---------------------------------------------------------------------------
 # 1. SECURITY  — always fatal
 # ---------------------------------------------------------------------------
@@ -297,9 +321,21 @@ def audit_security(root):
             if len(line) > 2000:      # minified/vendored; scanning is noise
                 continue
 
+            # Computed once per line, shared with the entropy check below: a
+            # line carrying a verified-safe Supabase anon JWT also contains
+            # 32+ char fragments of that same JWT (its header/signature
+            # segments) that the INDEPENDENT entropy heuristic below would
+            # otherwise re-flag on its own -- found 2026-09-01 fixing the
+            # exact-pattern JWT check first and still seeing a 36-char
+            # "high-entropy credential" finding on the identical line.
+            line_has_exempt_anon_jwt = False
             for pat, label in SECRET_PATTERNS:
-                if re.search(pat, line):
+                m = re.search(pat, line)
+                if m:
                     if looks_like_placeholder(line):
+                        continue
+                    if label.startswith("JWT") and _is_supabase_anon_jwt(m.group(0)):
+                        line_has_exempt_anon_jwt = True
                         continue
                     out.append(Finding(
                         "SECURITY", "FATAL", f"{label} found",
@@ -336,7 +372,19 @@ def audit_security(root):
             # a rotated scheme. Threshold 4.0 bits/char with mixed case and digits is
             # well above English prose (~2.5-3.0) and above hex hashes (~4.0 but
             # exempted explicitly).
-            if not ENTROPY_EXEMPT.search(line):
+            # A Chrome extension manifest's top-level "key" field is the
+            # base64 DER-encoded PUBLIC half of the extension's signing
+            # keypair -- Chrome's own documented mechanism for giving an
+            # unpacked/dev-loaded extension a stable ID. It is meant to be
+            # committed and public, the same category as a code-signing
+            # public key, not a secret. Found 2026-09-01 auditing SALT:
+            # flagged as a 392-char high-entropy "credential" with no way
+            # to know it was this specific, safe, well-known field.
+            is_manifest_public_key = (
+                rel.name.lower() == "manifest.json"
+                and '"manifest_version"' in text
+                and re.match(r'\s*"key"\s*:', line))
+            if not ENTROPY_EXEMPT.search(line) and not is_manifest_public_key and not line_has_exempt_anon_jwt:
                 for tok in HIGH_ENTROPY_CANDIDATE.findall(line):
                     if looks_like_placeholder(line):
                         break
@@ -399,6 +447,8 @@ def audit_security(root):
             for pat, label in SECRET_PATTERNS:
                 m = re.search(pat, hist)
                 if m and not looks_like_placeholder(m.group(0)):
+                    if label.startswith("JWT") and _is_supabase_anon_jwt(m.group(0)):
+                        continue
                     out.append(Finding(
                         "SECURITY", "FATAL",
                         f"{label} present in GIT HISTORY (not just working tree)",
@@ -445,6 +495,8 @@ def audit_security(root):
             for pat, label in SECRET_PATTERNS:
                 m = re.search(pat, msgs)
                 if m and not looks_like_placeholder(m.group(0)):
+                    if label.startswith("JWT") and _is_supabase_anon_jwt(m.group(0)):
+                        continue
                     out.append(Finding(
                         "SECURITY", "FATAL", f"{label} in a COMMIT MESSAGE",
                         "git log", "Rewrite history or start clean."))
